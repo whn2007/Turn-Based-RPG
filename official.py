@@ -4,6 +4,7 @@ import os
 #random used for some RNG
 import random
 
+
 pygame.init()
 
 clock = pygame.time.Clock()
@@ -39,7 +40,7 @@ def draw_background():
 
 #fighter class
 class Character():
-    def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attk, skill_one_hit, skill_two_hit):
+    def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attk, speed, skill_one_hit, skill_two_hit):
         self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
         self.animation_list = []
@@ -48,6 +49,7 @@ class Character():
         self.max_hp = max_hp
         self.hp = max_hp
         self.attk = attk
+        self.speed = speed
         #lets next character in turn know that they can play their turn
         self.animation_finished = True
         #frame where animations of skill one and skill two reach peak
@@ -152,13 +154,17 @@ class Character():
         screen.blit(hp_back, (self.rect.x + added_x, self.rect.y + added_y))
         pygame.draw.rect(screen, hp_bar_color, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
 
+#sort character list by speed and adds some RNG
+def speed_sort(char_list):
+    char_list.sort(reverse=True, key=lambda s: s.speed + random.randrange(-10,11))
 
 #initiate characters
-char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 3, 0)
-char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 0)
-char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 0)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 3, 3, 0)
+char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
+char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
 char_list = [char1,char2, char3]
+speed_sort(char_list)
 ally_list = [char1]
 enemy_list = [char2,char3]
 
@@ -176,7 +182,6 @@ wait_time = 60
 
 run = True
 while run:
-
     clock.tick(fps)
 
     #draw background
@@ -186,6 +191,10 @@ while run:
     char1.draw_hp_bar(325, 40)
     char2.draw_hp_bar(115, 40)
     char3.draw_hp_bar(115, 40)
+    #draw hitbox for characters, debug
+    # for char in char_list:
+    #     charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
+    #     pygame.draw.rect(screen, hp_bar_color, pygame.Rect(charRect))
 
     #variables
     mouse_pos = pygame.mouse.get_pos()
@@ -199,32 +208,34 @@ while run:
     
     #skips dead character turns
     if char_turn.hp <= 0:
-        if turn == len(char_list) - 1: turn = 0                       
+        if turn == len(char_list) - 1:
+            speed_sort(char_list)
+            turn = 0                       
         else: turn += 1
-        print(turn)
     
 
     #player action
-    if clicked and char_turn_prev.animation_finished and not char_turn.enemy and char_turn.hp > 0:
+    if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
         for count, enemy in enumerate(enemy_list):
             #fix collision box
             enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
             if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
+                char_turn.animation_finished = False
                 target = enemy_list[count]
                 char_turn.skill_one()
                 char_turn_prev = char_turn
                 #update turn and makes sure it only runs once
                 if turn_increased == False:
-                    if turn == len(char_list) - 1: turn = 0                       
+                    if turn == len(char_list) - 1:
+                        speed_sort(char_list)
+                        turn = 0                       
                     else: turn += 1
                     turn_increased = True
-                    print(turn)
 
     
     #enemy action
-    if char_turn.enemy and char_turn_prev.animation_finished and char_turn.hp > 0:
+    if char_turn.enemy and char_turn_prev.animation_finished:
         #ensures the next character cannot act before animiation is done
-        char_turn.animation_finished = False
         wait_count += 1
         if wait_count >= wait_time:
             for char in ally_list:
@@ -232,14 +243,16 @@ while run:
                     target = char
                 break
             char_turn.skill_one()
+            char_turn.animation_finished = False
             wait_count = 0
             char_turn_prev = char_turn
             #update turn and makes sure it only runs once
             if turn_increased == False:
-                if turn == len(char_list) - 1: turn = 0                       
+                if turn == len(char_list) - 1:
+                    speed_sort(char_list)
+                    turn = 0                       
                 else: turn += 1
                 turn_increased = True
-                print(turn)
 
 
     for event in pygame.event.get():
