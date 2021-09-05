@@ -187,10 +187,6 @@ while run:
     char2.draw_hp_bar(115, 40)
     char3.draw_hp_bar(115, 40)
 
-    #for char in char_list:
-        #charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
-        #pygame.draw.rect(screen, hp_bar_color, pygame.Rect(charRect))
-
     #variables
     mouse_pos = pygame.mouse.get_pos()
     pygame.mouse.set_visible(True)
@@ -211,8 +207,9 @@ while run:
     #player action
     if clicked and char_turn_prev.animation_finished and not char_turn.enemy and char_turn.hp > 0:
         for count, enemy in enumerate(enemy_list):
-            enemyRect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
-            if pygame.Rect(enemyRect).collidepoint(mouse_pos) and enemy.hp > 0:
+            #fix collision box
+            enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
+            if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
                 target = enemy_list[count]
                 char_turn.skill_one()
                 char_turn_prev = char_turn
