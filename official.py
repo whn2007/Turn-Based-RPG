@@ -21,8 +21,9 @@ pygame.display.set_caption('Crazy Cowboys')
 
 
 #health bar colors
-red = (255, 0, 0)
-green = (0, 255, 0)
+hp_bar_color = (191, 255, 64)
+#back hp bar
+hp_back = pygame.image.load("images/hp_bar/hp_back.png").convert_alpha()
 hp_bar_height = 10
 hp_bar_width = 80
 
@@ -46,10 +47,6 @@ class Character():
         self.max_hp = max_hp
         self.hp = max_hp
         self.attk = attk
-        if self.hp > 0:
-            self.alive = True
-        else:
-            self.alive = False
         #lets next character in turn know that they can play their turn
         self.animation_finished = True
         #frame where animations of skill one and skill two reach peak
@@ -98,12 +95,18 @@ class Character():
             if not self.skill_activated:
                 damage = self.attk
                 target.hp -= damage
-                target.hurt()
+                if target.hp <= 0:
+                    target.death()
+                else:
+                    target.hurt()
                 self.skill_activated = True
 
         if self.frame_index >= len(self.animation_list[self.state]) - 1:
+            # if character is dead, leave death animation on last frame
+            if self.state == 4:
+                self.frame_index = len(self.animation_list[self.state]) - 1
+            else: self.idle()
             self.animation_finished = True
-            self.idle()
 
     def idle(self):
         #set variable to idle animation
@@ -131,16 +134,22 @@ class Character():
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
 
+    def death(self):
+        #set variables to death animation
+        self.state = 4
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
     def draw_hp_bar(self, added_x, added_y):
         #update with new health
         #calculate health ratio
         ratio = self.hp / self.max_hp
-        pygame.draw.rect(screen, red, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width, hp_bar_height))
-        pygame.draw.rect(screen, green, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
+        screen.blit(hp_back, (self.rect.x + added_x, self.rect.y + added_y))
+        pygame.draw.rect(screen, hp_bar_color, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
 
 
 #initiate characters
-char1 = Character((450,320), "shock_sweeper", 6, 6, False, False, 50, 7, 3, 0)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 7, 3, 0)
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 7, 0)
 
 char_list = [char1,char2]
@@ -167,7 +176,7 @@ while run:
     draw_background()
 
     #draw character health bars
-    char1.draw_hp_bar(130, 55)
+    char1.draw_hp_bar(325, 55)
     char2.draw_hp_bar(115, 40)
 
     #variables
@@ -179,11 +188,11 @@ while run:
     for char in char_list:
         char.update()
         char.draw()
-
+    
     #player action
-    if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
+    if clicked and char_turn_prev.animation_finished and not char_turn.enemy and char_turn.hp > 0:
         for count, enemy in enumerate(enemy_list):
-            if enemy.rect.collidepoint(mouse_pos) and enemy.alive:
+            if enemy.rect.collidepoint(mouse_pos) and enemy.hp > 0:
                 target = enemy_list[count]
                 char_turn.skill_one()
                 char_turn_prev = char_turn
@@ -193,13 +202,13 @@ while run:
 
     
     #enemy action
-    if char_turn.enemy and char_turn_prev.animation_finished:
+    if char_turn.enemy and char_turn_prev.animation_finished and char_turn.hp > 0:
         #ensures the next character cannot act before animiation is done
         char_turn.animation_finished = False
         wait_count += 1
         if wait_count >= wait_time:
             for char in ally_list:
-                if char.alive:
+                if char.hp > 0:
                     target = char
                 break
             char_turn.skill_one()
