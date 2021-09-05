@@ -15,6 +15,7 @@ screen_height = 540
 
 #global variables
 target = None
+turn_increased = False
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Crazy Cowboys')
@@ -80,6 +81,7 @@ class Character():
     #update sprite
     def update(self):
         global target
+        global turn_increased
         animation_cooldown = 100
         #handle animation
         #update image
@@ -102,6 +104,9 @@ class Character():
                 self.skill_activated = True
 
         if self.frame_index >= len(self.animation_list[self.state]) - 1:
+            #prevents turn from increasing more than once per turn
+            if self.state == 1 or self.state == 2:
+                turn_increased = False
             # if character is dead, leave death animation on last frame
             if self.state == 4:
                 self.frame_index = len(self.animation_list[self.state]) - 1
@@ -149,22 +154,24 @@ class Character():
 
 
 #initiate characters
-char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 7, 3, 0)
-char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 7, 0)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 3, 0)
+char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 0)
+char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 0)
 
-char_list = [char1,char2]
+char_list = [char1,char2, char3]
 ally_list = [char1]
-enemy_list = [char2]
+enemy_list = [char2,char3]
 
 #variables
 turn = 0
 clicked = False
 char_turn = char_list[turn]
 char_turn_prev = char_turn
-#hp bars
+turn_increased = False
+
 #wait time for enemy action
 wait_count = 0
-wait_time = 100
+wait_time = 60
 
 
 run = True
@@ -178,6 +185,7 @@ while run:
     #draw character health bars
     char1.draw_hp_bar(325, 55)
     char2.draw_hp_bar(115, 40)
+    char3.draw_hp_bar(115, 40)
 
     #variables
     mouse_pos = pygame.mouse.get_pos()
@@ -189,6 +197,13 @@ while run:
         char.update()
         char.draw()
     
+    #skips dead character turns
+    if char_turn.hp <= 0:
+        if turn == len(char_list) - 1: turn = 0                       
+        else: turn += 1
+        print(turn)
+    
+
     #player action
     if clicked and char_turn_prev.animation_finished and not char_turn.enemy and char_turn.hp > 0:
         for count, enemy in enumerate(enemy_list):
@@ -196,9 +211,12 @@ while run:
                 target = enemy_list[count]
                 char_turn.skill_one()
                 char_turn_prev = char_turn
-                #update turn
-                if turn == len(char_list) - 1: turn = 0                       
-                else: turn += 1
+                #update turn and makes sure it only runs once
+                if turn_increased == False:
+                    if turn == len(char_list) - 1: turn = 0                       
+                    else: turn += 1
+                    turn_increased = True
+                    print(turn)
 
     
     #enemy action
@@ -214,9 +232,12 @@ while run:
             char_turn.skill_one()
             wait_count = 0
             char_turn_prev = char_turn
-            #update turn
-            if turn == len(char_list) - 1: turn = 0                       
-            else: turn += 1
+            #update turn and makes sure it only runs once
+            if turn_increased == False:
+                if turn == len(char_list) - 1: turn = 0                       
+                else: turn += 1
+                turn_increased = True
+                print(turn)
 
 
     for event in pygame.event.get():
