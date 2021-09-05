@@ -23,6 +23,8 @@ pygame.display.set_caption('Crazy Cowboys')
 #health bar colors
 red = (255, 0, 0)
 green = (0, 255, 0)
+hp_bar_height = 10
+hp_bar_width = 80
 
 #load images
 #background image
@@ -36,7 +38,7 @@ def draw_background():
 #fighter class
 class Character():
     def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attk, skill_one_hit, skill_two_hit):
-        self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt 4: death
+        self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
         self.animation_list = []
         self.frame_index = 0
@@ -58,7 +60,7 @@ class Character():
 
 
     #load all animations
-        animations = ("idle", "skill_one", "skill_two", "hurt", "death")
+        animations = ("idle", "skill_one", "skill_two", "hurt", "death", "walk")
         for animation in animations:
             temp_list = []
             for i in range(len(os.listdir(f"images/characters/{name}/{animation}"))):
@@ -129,26 +131,17 @@ class Character():
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
 
-class HealthBar():
-    def __init__(self, x, y, hp, max_hp):
-        self.x = x
-        self.y = y
-        self.hp = hp
-        self.max_hp = max_hp
-
-
-    def draw(self, hp):
+    def draw_hp_bar(self, added_x, added_y):
         #update with new health
-        self.hp = hp
         #calculate health ratio
         ratio = self.hp / self.max_hp
-        pygame.draw.rect(screen, red, (self.x, self.y, 150, 20))
-        pygame.draw.rect(screen, green, (self.x, self.y, 150 * ratio, 20))
+        pygame.draw.rect(screen, red, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width, hp_bar_height))
+        pygame.draw.rect(screen, green, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
 
 
 #initiate characters
 char1 = Character((450,320), "shock_sweeper", 6, 6, False, False, 50, 7, 3, 0)
-char2 = Character((590,315), "skeleton", 5, 5, True, True, 30, 5, 7, 0)
+char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 7, 0)
 
 char_list = [char1,char2]
 ally_list = [char1]
@@ -159,10 +152,10 @@ turn = 0
 clicked = False
 char_turn = char_list[turn]
 char_turn_prev = char_turn
-char1_health_bar = HealthBar(280, 280, char1.hp, char1.max_hp)
-char2_health_bar = HealthBar(570, 260, char2.hp, char2.max_hp)
+#hp bars
+#wait time for enemy action
 wait_count = 0
-wait_time = 80
+wait_time = 100
 
 
 run = True
@@ -174,8 +167,8 @@ while run:
     draw_background()
 
     #draw character health bars
-    char1_health_bar.draw(char1.hp)
-    char2_health_bar.draw(char2.hp)
+    char1.draw_hp_bar(130, 55)
+    char2.draw_hp_bar(115, 40)
 
     #variables
     mouse_pos = pygame.mouse.get_pos()
