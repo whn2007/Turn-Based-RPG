@@ -21,6 +21,8 @@ turn_increased = False
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Crazy Cowboys')
 
+#load font
+game_font = pygame.font.Font("images/ui/PixeloidSans.ttf", 30)
 
 #health bar colors
 hp_bar_color = (191, 255, 64)
@@ -163,9 +165,16 @@ class Character():
         pygame.draw.rect(screen, hp_bar_color, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
     
     def portrait_hp_bar(self):
+        #draw hp bar next to portrait
         ratio = self.hp / self.max_hp
         screen.blit(hp_back_big, (210,505))
         pygame.draw.rect(screen, hp_bar_color, (210, 505, (hp_bar_width * 2) * ratio, (hp_bar_height * 2)))
+        #converts name and draws it above portrait hp bar
+        temp_lst = self.name.split("_")
+        temp_lst = [each_string.capitalize() for each_string in temp_lst]
+        new_name = " ".join(temp_lst)
+        portrait_name = game_font.render(f"{new_name}", False, (255,255,255))
+        screen.blit(portrait_name, (210,460))
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
