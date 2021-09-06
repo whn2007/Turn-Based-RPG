@@ -26,6 +26,7 @@ pygame.display.set_caption('Crazy Cowboys')
 hp_bar_color = (191, 255, 64)
 #back hp bar
 hp_back = pygame.image.load("images/hp_bar/hp_back.png").convert_alpha()
+hp_back_big = pygame.image.load("images/hp_bar/hp_back_big.png").convert_alpha()
 hp_bar_height = 10
 hp_bar_width = 80
 
@@ -45,6 +46,7 @@ class Character():
         self.update_time = pygame.time.get_ticks()
         self.animation_list = []
         self.frame_index = 0
+        self.name = name
         self.enemy = enemy
         self.max_hp = max_hp
         self.hp = max_hp
@@ -59,18 +61,17 @@ class Character():
         self.skill_activated = False
 
 
-    #load all animations
+        #load all animations
         animations = ("idle", "skill_one", "skill_two", "hurt", "death", "walk")
         for animation in animations:
             temp_list = []
-            for i in range(len(os.listdir(f"images/characters/{name}/{animation}"))):
-                image = pygame.image.load(f"images/characters/{name}/{animation}/{i}.png").convert_alpha()
+            for i in range(len(os.listdir(f"images/characters/{self.name}/{animation}"))):
+                image = pygame.image.load(f"images/characters/{self.name}/{animation}/{i}.png").convert_alpha()
                 if flip_image:
                     image = pygame.transform.flip(image, True, False)
                 image = pygame.transform.scale(image,(image.get_width() * scale_x, image.get_height() * scale_y))
                 temp_list.append(image)
             self.animation_list.append(temp_list)
-
         
         self.image = self.animation_list[self.state][self.frame_index]
         #Collision box for sprites
@@ -79,6 +80,13 @@ class Character():
 
     def draw(self):
         screen.blit(self.image, self.rect)
+
+    #load in portrait
+    def draw_portrait(self):
+        image = pygame.image.load(f"images/characters/{self.name}/icons/portrait.png")
+        portrait = pygame.transform.scale(image,(image.get_width() * 8, image.get_height() * 8))
+        screen.blit(portrait, (0,360))
+
 
     #update sprite
     def update(self):
@@ -153,6 +161,11 @@ class Character():
         ratio = self.hp / self.max_hp
         screen.blit(hp_back, (self.rect.x + added_x, self.rect.y + added_y))
         pygame.draw.rect(screen, hp_bar_color, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
+    
+    def portrait_hp_bar(self):
+        ratio = self.hp / self.max_hp
+        screen.blit(hp_back_big, (210,505))
+        pygame.draw.rect(screen, hp_bar_color, (210, 505, (hp_bar_width * 2) * ratio, (hp_bar_height * 2)))
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
@@ -232,7 +245,14 @@ while run:
                     else: turn += 1
                     turn_increased = True
 
-    
+    #draw portrait and corresponding hp_bar
+    if char_turn_prev.animation_finished:
+        char_turn.portrait_hp_bar()
+        char_turn.draw_portrait()
+    else:
+        char_turn_prev.portrait_hp_bar()
+        char_turn_prev.draw_portrait()
+
     #enemy action
     if char_turn.enemy and char_turn_prev.animation_finished:
         #ensures the next character cannot act before animiation is done
