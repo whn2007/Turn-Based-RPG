@@ -271,17 +271,19 @@ while run:
                 if char.hp > 0:
                     target = char
                 break
-            char_turn.skill_one()
-            char_turn.animation_finished = False
-            wait_count = 0
-            char_turn_prev = char_turn
-            #update turn and makes sure it only runs once
-            if turn_increased == False:
-                if turn == len(char_list) - 1:
-                    speed_sort(char_list)
-                    turn = 0                       
-                else: turn += 1
-                turn_increased = True
+            #prevents enemy from playing animation when player is dead
+            if not target.enemy and target.hp > 0:
+                char_turn.skill_one()
+                char_turn.animation_finished = False
+                wait_count = 0
+                char_turn_prev = char_turn
+                #update turn and makes sure it only runs once
+                if turn_increased == False:
+                    if turn == len(char_list) - 1:
+                        speed_sort(char_list)
+                        turn = 0                       
+                    else: turn += 1
+                    turn_increased = True
 
 
     for event in pygame.event.get():
