@@ -34,8 +34,8 @@ hp_bar_width = 80
 
 #load images
 #background image
-image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
-background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
+background_image = pygame.image.load('images/backgrounds/hills.png').convert_alpha()
+#background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
 
 #function for drawing background
 def draw_background():
@@ -47,6 +47,9 @@ class Character():
         self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
         self.animation_list = []
+        self.skill_buttons_list = []
+        self.skill_buttons_click_list = []
+        self.skill_buttons_selected_list = []
         self.frame_index = 0
         self.name = name
         self.enemy = enemy
@@ -74,21 +77,29 @@ class Character():
                 image = pygame.transform.scale(image,(image.get_width() * scale_x, image.get_height() * scale_y))
                 temp_list.append(image)
             self.animation_list.append(temp_list)
-        
+
         self.image = self.animation_list[self.state][self.frame_index]
         #Collision box for sprites
         self.rect = self.image.get_rect()
         self.rect.center = position
 
+        #load skill button images
+        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons"))):
+            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons/{i}.png").convert_alpha()
+            self.skill_buttons_list.append(skill_image)
+        
+        #load images for when player clicks on button
+        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons_click"))):
+            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons_click/{i}.png").convert_alpha()
+            self.skill_buttons_click_list.append(skill_image)
+
+        #load images for when players select a button
+        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons_selected"))):
+            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons_selected/{i}.png").convert_alpha()
+            self.skill_buttons_selected_list.append(skill_image)
+
     def draw(self):
         screen.blit(self.image, self.rect)
-
-    #load in portrait
-    def draw_portrait(self):
-        image = pygame.image.load(f"images/characters/{self.name}/icons/portrait.png")
-        portrait = pygame.transform.scale(image,(image.get_width() * 8, image.get_height() * 8))
-        screen.blit(portrait, (0,360))
-
 
     #update sprite
     def update(self):
@@ -164,6 +175,12 @@ class Character():
         screen.blit(hp_back, (self.rect.x + added_x, self.rect.y + added_y))
         pygame.draw.rect(screen, hp_bar_color, (self.rect.x + added_x, self.rect.y + added_y, hp_bar_width * ratio, hp_bar_height))
     
+    #load in portrait
+    def draw_portrait(self):
+        image = pygame.image.load(f"images/characters/{self.name}/icons/portrait.png")
+        portrait = pygame.transform.scale(image,(image.get_width() * 8, image.get_height() * 8))
+        screen.blit(portrait, (0,360))
+
     def portrait_hp_bar(self):
         #draw hp bar next to portrait
         ratio = self.hp / self.max_hp
@@ -175,13 +192,21 @@ class Character():
         new_name = " ".join(temp_lst)
         portrait_name = game_font.render(f"{new_name}", False, (255,255,255))
         screen.blit(portrait_name, (210,460))
+    
+    def draw_skill_buttons(self):
+        #draw buttons for skills
+        pass
+
+    def draw_character_ui(self):
+        self.portrait_hp_bar()
+        self.draw_portrait()
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
     char_list.sort(reverse=True, key=lambda s: s.speed + random.randrange(-10,11))
 
 #initiate characters
-char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 3, 3, 0)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3, 0)
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
@@ -256,11 +281,9 @@ while run:
 
     #draw portrait and corresponding hp_bar
     if char_turn_prev.animation_finished:
-        char_turn.portrait_hp_bar()
-        char_turn.draw_portrait()
+        char_turn.draw_character_ui()
     else:
-        char_turn_prev.portrait_hp_bar()
-        char_turn_prev.draw_portrait()
+        char_turn_prev.draw_character_ui()
 
     #enemy action
     if char_turn.enemy and char_turn_prev.animation_finished:
@@ -294,7 +317,7 @@ while run:
             clicked = True
         else:
             clicked = False
-        
+    
 
     pygame.display.update()
 
