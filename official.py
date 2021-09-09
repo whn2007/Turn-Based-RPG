@@ -49,11 +49,12 @@ def draw_background():
 
 #skill button clas
 class Button():
-    def __init__(self,name, pos):
+    def __init__(self,name, skill_number, pos):
         self.skill_buttons_list = [] #0: normal button, 1: pressed, 2: selected
             #load in skill buttons
-        buttons = ("skills", "clicked", "selected")
+        buttons = ("skills", "clicked") # "selected")
         self.name = name
+        self.skill_number = skill_number
         self.pos = pos
         for button in buttons:
             temp_list = []
@@ -61,12 +62,20 @@ class Button():
                 image = pygame.image.load(f"images/characters/{self.name}/buttons/{button}/{i}.png").convert_alpha()
                 temp_list.append(image)
             self.skill_buttons_list.append(temp_list)
-        self.image = self.skill_buttons_list[0][0]
+        self.image = self.skill_buttons_list[0][skill_number]
         self.initial_rect = self.image.get_rect(midbottom = self.pos)
         self.rect = self.initial_rect
         
-    def draw(self):
-        screen.blit(self.image, self.rect)
+    def draw(self, state):
+        if state == 0:
+            screen.blit(self.image, self.rect)
+        if state == 1:
+            skill_button_selected = self.skill_buttons_list[1][self.skill_number].get_rect(midbottom = self.pos)
+            screen.blit(self.skill_buttons_list[1][self.skill_number], skill_button_selected)
+        if state == 2:
+            skill_button_selected = self.skill_buttons_list[2][self.skill_number].get_rect(midbottom = self.pos)
+            screen.blit(self.skill_buttons_list[2][self.skill_number], skill_button_selected)
+
 
 #unit class
 class Character():
@@ -88,9 +97,9 @@ class Character():
         self.skill_two_hit = skill_two_hit
         #check if skill was casted already
         self.skill_activated = False
-        self.skill_one_button = Button(self.name, button_one_pos)
-        self.skill_two_button = Button(self.name, button_two_pos)
-        self.skill_three_button = Button(self.name, button_three_pos)
+        self.skill_one_button = Button(self.name, 0, button_one_pos)
+        self.skill_two_button = Button(self.name, 1,  button_two_pos)
+        self.skill_three_button = Button(self.name, 2,  button_three_pos)
         self.skill_buttons = [self.skill_one_button,self.skill_two_button,self.skill_three_button]
 
 
@@ -127,7 +136,7 @@ class Character():
             self.update_time = pygame.time.get_ticks()
             self.frame_index += 1
         
-        #calculates damage animations at the frame when the attack hits
+        #calculates damage animations at the frame when the attack hits for skill one
         if self.state == 1 and self.frame_index == self.skill_one_hit:
             #if the skill has not been yet casted:
             if not self.skill_activated:
@@ -137,10 +146,24 @@ class Character():
                     target.death()
                 else:
                     target.hurt()
+                #prevents damage from being calculated twice
                 self.skill_activated = True
 
+         #calculates damage animations at the frame when the attack hits
+        if self.state == 2 and self.frame_index == self.skill_two_hit:
+            #if the skill has not been yet casted:
+            if not self.skill_activated:
+                damage = self.attk
+                target.hp -= damage
+                if target.hp <= 0:
+                    target.death()
+                else:
+                    target.hurt()
+                #prevents damage from being calculated twice
+                self.skill_activated = True
+
+
         if self.frame_index >= len(self.animation_list[self.state]) - 1:
-            global selected
             #prevents turn from increasing more than once per turn
             if self.state == 1 or self.state == 2:
                 turn_increased = False
@@ -149,7 +172,6 @@ class Character():
                 self.frame_index = len(self.animation_list[self.state]) - 1
             else: self.idle()
             self.animation_finished = True
-            selected = None
 
     def idle(self):
         #set variable to idle animation
@@ -208,21 +230,17 @@ class Character():
         portrait_name = game_font.render(f"{new_name}", False, (255,255,255))
         screen.blit(portrait_name, (210,460))
     
-    def draw_buttons(self):
-        for button in self.skill_buttons:
-            button.draw()
 
     def draw_character_ui(self):
         self.portrait_hp_bar()
         self.draw_portrait()
-        self.draw_buttons()
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
     char_list.sort(reverse=True, key=lambda s: s.speed + random.randrange(-10,11))
 
 #initiate characters
-char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3, 0)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3, 5)
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
@@ -280,37 +298,47 @@ while run:
     #draw portrait and corresponding hp_bar
     if char_turn_prev.animation_finished:
         char_turn.draw_character_ui()
+            #skill buttons with selection
+        for count, button in enumerate(char_turn.skill_buttons):
+            if clicked == True and button.rect.collidepoint(mouse_pos) and not char_turn.enemy:
+                selected = char_turn.skill_buttons[count]
+                #draw button in clicked state
+                selected.draw(1)
+            else:
+                #draw normal button
+                button.draw(0)
     else:
+        for button in char_turn_prev.skill_buttons:
+            button.draw(0)
         char_turn_prev.draw_character_ui()
+
+
 
 
     #player action
     if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
         #select skill and animate it
-
-        for count, button in enumerate(char_turn.skill_buttons):
-            if clicked == True and button.rect.collidepoint(mouse_pos) and not char_turn.enemy:
-                selected = char_turn.skill_buttons[count]
-                selected.image = button.skill_buttons_list[1][0]
-                #moves button down a bit to show that it was pressed
-                selected.rect = button.image.get_rect(midbottom = (button.pos[0],button.pos[1]))
-        
-        
-        for count, enemy in enumerate(enemy_list):
-            #fix collision box
-            enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
-            if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
-                char_turn.animation_finished = False
-                target = enemy_list[count]
-                char_turn.skill_one()
-                char_turn_prev = char_turn
-                #update turn and makes sure it only runs once
-                if turn_increased == False:
-                    if turn == len(char_list) - 1:
-                        speed_sort(char_list)
-                        turn = 0                       
-                    else: turn += 1
-                    turn_increased = True
+        if selected:
+            for count, enemy in enumerate(enemy_list):
+                #fix collision box
+                enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
+                if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
+                    if selected.skill_number == 0 or selected.skill_number == 2:
+                        char_turn.animation_finished = False
+                        target = enemy_list[count]
+                        if selected.skill_number == 0:
+                            char_turn.skill_one()
+                        if selected.skill_number == 2:
+                            char_turn.skill_two()
+                        char_turn_prev = char_turn
+                        #update turn and makes sure it only runs once
+                        if turn_increased == False:
+                            selected = None
+                            if turn == len(char_list) - 1:
+                                speed_sort(char_list)
+                                turn = 0                       
+                            else: turn += 1
+                            turn_increased = True
 
     #enemy action
     if char_turn.enemy and char_turn_prev.animation_finished:
@@ -343,6 +371,8 @@ while run:
             clicked = True
         else:
             clicked = False
+    
+    print(selected)
 
     pygame.display.update()
 
