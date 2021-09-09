@@ -87,9 +87,9 @@ class Character():
             self.skill_buttons_list.append(temp_list)
         
         #initialize skill_button locations, using same sprite because its the same size for all skill buttons
-        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (600,425)))
-        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (710,425)))
-        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (820,425)))
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(midbottom = (600,535)))
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(midbottom = (710,535)))
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(midbottom = (820,535)))
 
         self.image = self.animation_list[self.state][self.frame_index]
         #Collision box for sprites
