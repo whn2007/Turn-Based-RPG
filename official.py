@@ -34,8 +34,8 @@ hp_bar_width = 80
 
 #load images
 #background image
-background_image = pygame.image.load('images/backgrounds/hills.png').convert_alpha()
-#background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
+image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
+background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
 
 #function for drawing background
 def draw_background():
@@ -47,9 +47,8 @@ class Character():
         self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
         self.animation_list = []
-        self.skill_buttons_list = []
-        self.skill_buttons_click_list = []
-        self.skill_buttons_selected_list = []
+        self.skill_buttons_list = [] #0: normal button, 1: pressed, 2: selected
+        self.skill_buttons_rect_list = []
         self.frame_index = 0
         self.name = name
         self.enemy = enemy
@@ -77,27 +76,27 @@ class Character():
                 image = pygame.transform.scale(image,(image.get_width() * scale_x, image.get_height() * scale_y))
                 temp_list.append(image)
             self.animation_list.append(temp_list)
+            
+        #load in skill buttons
+        buttons = ("skills", "clicked", "selected")
+        for button in buttons:
+            temp_list = []
+            for i in range(len(os.listdir(f"images/characters/{self.name}/buttons/{button}"))):
+                image = pygame.image.load(f"images/characters/{self.name}/buttons/{button}/{i}.png").convert_alpha()
+                temp_list.append(image)
+            self.skill_buttons_list.append(temp_list)
+        
+        #initialize skill_button locations, using same sprite because its the same size for all skill buttons
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (600,425)))
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (710,425)))
+        self.skill_buttons_rect_list.append(self.skill_buttons_list[0][0].get_rect(topleft = (820,425)))
 
         self.image = self.animation_list[self.state][self.frame_index]
         #Collision box for sprites
-        self.rect = self.image.get_rect()
-        self.rect.center = position
+        self.rect = self.image.get_rect(center = position)
 
-        #load skill button images
-        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons"))):
-            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons/{i}.png").convert_alpha()
-            self.skill_buttons_list.append(skill_image)
+
         
-        #load images for when player clicks on button
-        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons_click"))):
-            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons_click/{i}.png").convert_alpha()
-            self.skill_buttons_click_list.append(skill_image)
-
-        #load images for when players select a button
-        for i in range(len(os.listdir(f"images/characters/{self.name}/skill_buttons_selected"))):
-            skill_image = pygame.image.load(f"images/characters/{self.name}/skill_buttons_selected/{i}.png").convert_alpha()
-            self.skill_buttons_selected_list.append(skill_image)
-
     def draw(self):
         screen.blit(self.image, self.rect)
 
@@ -195,11 +194,14 @@ class Character():
     
     def draw_skill_buttons(self):
         #draw buttons for skills
-        pass
+        screen.blit(self.skill_buttons_list[0][0], self.skill_buttons_rect_list[0])
+        screen.blit(self.skill_buttons_list[0][1], self.skill_buttons_rect_list[1])
+        screen.blit(self.skill_buttons_list[0][2], self.skill_buttons_rect_list[2])
 
     def draw_character_ui(self):
         self.portrait_hp_bar()
         self.draw_portrait()
+        self.draw_skill_buttons()
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
@@ -210,6 +212,7 @@ char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3,
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
+#intializes characters and sorts first turn by speed
 char_list = [char1,char2, char3]
 speed_sort(char_list)
 ally_list = [char1]
@@ -218,6 +221,7 @@ enemy_list = [char2,char3]
 #variables
 turn = 0
 clicked = False
+clicked_held = False
 char_turn = char_list[turn]
 char_turn_prev = char_turn
 turn_increased = False
@@ -236,8 +240,8 @@ while run:
 
     #draw character health bars
     char1.draw_hp_bar(325, 40)
-    char2.draw_hp_bar(115, 40)
-    char3.draw_hp_bar(115, 40)
+    char2.draw_hp_bar(115, 35)
+    char3.draw_hp_bar(115, 35)
     #draw hitbox for characters, debug
     # for char in char_list:
     #     charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
@@ -259,6 +263,13 @@ while run:
             speed_sort(char_list)
             turn = 0                       
         else: turn += 1
+
+    #draw portrait and corresponding hp_bar
+    if char_turn_prev.animation_finished:
+        char_turn.draw_character_ui()
+    else:
+        char_turn_prev.draw_character_ui()
+
     
 
     #player action
@@ -278,12 +289,6 @@ while run:
                         turn = 0                       
                     else: turn += 1
                     turn_increased = True
-
-    #draw portrait and corresponding hp_bar
-    if char_turn_prev.animation_finished:
-        char_turn.draw_character_ui()
-    else:
-        char_turn_prev.draw_character_ui()
 
     #enemy action
     if char_turn.enemy and char_turn_prev.animation_finished:
@@ -317,7 +322,12 @@ while run:
             clicked = True
         else:
             clicked = False
-    
+        #while mouse button is held down, exception handling in case user drags mouse off of screen
+        if pygame.mouse.get_pressed()[0]:
+            try:
+                clicked_held = True
+            except AttributeError:
+                pass
 
     pygame.display.update()
 
