@@ -25,6 +25,18 @@ pygame.display.set_caption('Crazy Cowboys')
 #load font
 game_font = pygame.font.Font("images/ui/PixeloidSans.ttf", 30)
 
+#load images
+#background image
+image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
+background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
+#background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
+
+#load turn order icons (numbers)
+order_image_list = []
+for i in range(len(os.listdir(f"images/ui/order"))):
+    icon_image = pygame.image.load(f"images/ui/order/{i}.png").convert_alpha()
+    order_image_list.append(icon_image)
+
 #health bar colors
 hp_bar_color = (191, 255, 64)
 #back hp bar
@@ -33,11 +45,6 @@ hp_back_big = pygame.image.load("images/hp_bar/hp_back_big.png").convert_alpha()
 hp_bar_height = 10
 hp_bar_width = 80
 
-#load images
-#background image
-image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
-background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
-#background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
 
 #skill button positions:
 button_one_pos = (600,533)
@@ -48,7 +55,7 @@ button_three_pos = (820,533)
 def draw_background():
     screen.blit(background_image, (0, -1050))
 
-#skill button clas
+#skill button class
 class Button():
     def __init__(self,name, skill_number, pos):
         self.skill_buttons_list = [] #0: normal button, 1: pressed, 2: selected
@@ -241,21 +248,49 @@ class Character():
 def speed_sort(char_list):
     char_list.sort(reverse=True, key=lambda s: s.speed + random.randrange(-10,11))
 
-def small_portrait_draw(char_list):
-    x_pos = 120
+#draws turn order based on how many characters are still alive in the battle
+def small_icon_draw(char_list):
+    alive_count = 0
+    spacing = 0
     for char in char_list:
         if char.hp > 0:
-            screen.blit(char.small_portrait, (x_pos,0))
-            x_pos += 120
+            alive_count += 1
+    if alive_count == 6:
+        x_pos = 340
+        spacing = 120
+    elif alive_count == 5:
+        x_pos = 340
+        spacing = 120
+    elif alive_count == 4:
+        x_pos = 340
+        spacing = 120
+    elif alive_count == 3:
+        x_pos = 340
+        spacing = 120
+    elif alive_count == 2:
+        x_pos = 340
+        spacing = 120
+    elif alive_count == 1:
+        x_pos = 340
+        spacing = 120
+
+    counter = 0
+    for char in (char_list):
+        if char.hp > 0:
+            counter += 1
+            #put image on screen if character is alive
+            screen.blit(char.small_portrait, (x_pos,10))
+            #put number of order on screen in image
+            screen.blit(order_image_list[counter-1], (x_pos + 70, 73))
+            x_pos += spacing
 
 #initiate characters
-char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3, 5)
+char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 5, 3, 5)
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
 #intializes characters and sorts first turn by speed
 char_list = [char1,char2, char3]
-speed_sort(char_list)
 ally_list = [char1]
 enemy_list = [char2,char3]
 
@@ -264,7 +299,8 @@ turn = 0
 clicked = False
 char_turn = char_list[turn]
 char_turn_prev = char_turn
-turn_increased = False
+#used to update turn icons correctly
+turn_icon_wait = 0
 
 #wait time for enemy action
 wait_count = 0
@@ -296,17 +332,18 @@ while run:
     for count, char in enumerate(char_list):
         char.update()
         char.draw()
-    small_portrait_draw(char_list)
+    small_icon_draw(char_list)
     
     #skips dead character turns
-    if char_turn.hp <= 0:
-        if turn == len(char_list) - 1:
-            speed_sort(char_list)
-            turn = 0                       
-        else: turn += 1
-
-    #draw portrait and corresponding hp_bar
     if char_turn_prev.animation_finished:
+        if char_turn.hp <= 0:
+            if turn == len(char_list) - 1:
+                speed_sort(char_list)
+                turn = 0                       
+            else: turn += 1
+
+    #draw portrait and corresponding hp_bar, prevents flickering 
+    if char_turn_prev.animation_finished and char_turn.hp > 0:
         char_turn.draw_character_ui()
             #skill buttons with selection
         for count, button in enumerate(char_turn.skill_buttons):
