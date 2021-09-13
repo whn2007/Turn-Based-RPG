@@ -37,6 +37,7 @@ hp_bar_width = 80
 #background image
 image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
 background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
+#background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
 
 #skill button positions:
 button_one_pos = (600,533)
@@ -101,7 +102,9 @@ class Character():
         self.skill_two_button = Button(self.name, 1,  button_two_pos)
         self.skill_three_button = Button(self.name, 2,  button_three_pos)
         self.skill_buttons = [self.skill_one_button,self.skill_two_button,self.skill_three_button]
-
+        self.portrait = pygame.image.load(f"images/characters/{self.name}/icons/portrait.png")
+        small_portrait = pygame.image.load(f"images/characters/{self.name}/icons/small_portrait.png")
+        self.small_portrait = pygame.transform.scale(small_portrait,(small_portrait.get_width() * 3, small_portrait.get_height() * 3))
 
         #load all animations
         animations = ("idle", "skill_one", "skill_two", "hurt", "death", "walk")
@@ -214,8 +217,7 @@ class Character():
     
     #load in portrait
     def draw_portrait(self):
-        image = pygame.image.load(f"images/characters/{self.name}/icons/portrait.png")
-        portrait = pygame.transform.scale(image,(image.get_width() * 8, image.get_height() * 8))
+        portrait = pygame.transform.scale(self.portrait,(self.portrait.get_width() * 8, self.portrait.get_height() * 8))
         screen.blit(portrait, (0,360))
 
     def portrait_hp_bar(self):
@@ -238,6 +240,13 @@ class Character():
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
     char_list.sort(reverse=True, key=lambda s: s.speed + random.randrange(-10,11))
+
+def small_portrait_draw(char_list):
+    x_pos = 120
+    for char in char_list:
+        if char.hp > 0:
+            screen.blit(char.small_portrait, (x_pos,0))
+            x_pos += 120
 
 #initiate characters
 char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 15, 3, 5)
@@ -284,9 +293,10 @@ while run:
     char_turn = char_list[turn]
 
     #draw fighters
-    for char in char_list:
+    for count, char in enumerate(char_list):
         char.update()
         char.draw()
+    small_portrait_draw(char_list)
     
     #skips dead character turns
     if char_turn.hp <= 0:
@@ -313,8 +323,6 @@ while run:
         char_turn_prev.draw_character_ui()
 
 
-
-
     #player action
     if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
         #select skill and animate it
@@ -339,6 +347,7 @@ while run:
                                 turn = 0                       
                             else: turn += 1
                             turn_increased = True
+                            
 
     #enemy action
     if char_turn.enemy and char_turn_prev.animation_finished:
@@ -371,8 +380,7 @@ while run:
             clicked = True
         else:
             clicked = False
-    
-    print(selected)
+
 
     pygame.display.update()
 
