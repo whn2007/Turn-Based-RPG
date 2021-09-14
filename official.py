@@ -31,6 +31,9 @@ image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
 background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
 #background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
 
+#load turn pointer
+turn_pointer = pygame.image.load("images/ui/triangle.png")
+
 #load turn order icons (numbers)
 order_image_list = []
 for i in range(len(os.listdir(f"images/ui/order"))):
@@ -39,6 +42,7 @@ for i in range(len(os.listdir(f"images/ui/order"))):
 
 #health bar colors
 hp_bar_color = (191, 255, 64)
+red = (255, 0, 0)
 #back hp bar
 hp_back = pygame.image.load("images/hp_bar/hp_back.png").convert_alpha()
 hp_back_big = pygame.image.load("images/hp_bar/hp_back_big.png").convert_alpha()
@@ -90,6 +94,7 @@ class Character():
     def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attk, speed, skill_one_hit, skill_two_hit):
         self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
+        self.position = position
         self.animation_list = []
         self.frame_index = 0
         self.name = name
@@ -152,6 +157,8 @@ class Character():
             if not self.skill_activated:
                 damage = self.attk
                 target.hp -= damage
+                damage_text = Damage_Text(target.rect.centerx, target.rect.y, str(damage), red)
+                damage_text_group.add(damage_text)
                 if target.hp <= 0:
                     target.death()
                 else:
@@ -165,6 +172,8 @@ class Character():
             if not self.skill_activated:
                 damage = self.attk
                 target.hp -= damage
+                damage_text = Damage_Text(target.rect.centerx, target.rect.y, str(damage), red)
+                damage_text_group.add(damage_text)
                 if target.hp <= 0:
                     target.death()
                 else:
@@ -189,6 +198,16 @@ class Character():
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
     
+    def walk(self, target):
+        if abs(self.position[0] - target.position[0]) > 180:
+            self.state = 5
+            if self.enemy:
+                self.rect.x -= 10
+            else:
+                self.rect.x += 10
+        if abs(self.position[0] - target.position[0]) <= 180:
+            self.walked = True
+    
     def skill_one(self):
         #allows for skill to be casted in update function
         self.skill_activated = False
@@ -202,6 +221,7 @@ class Character():
         self.state = 2
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
+    
 
     def hurt(self):
         #set variables to hurt animation
@@ -239,10 +259,30 @@ class Character():
         portrait_name = game_font.render(f"{new_name}", False, (255,255,255))
         screen.blit(portrait_name, (210,460))
     
+    def draw_pointer(self):
+        screen.blit(turn_pointer, (self.position[0]-15,220))
 
     def draw_character_ui(self):
         self.portrait_hp_bar()
         self.draw_portrait()
+
+
+class Damage_Text(pygame.sprite.Sprite):
+    def __init__(self, x, y, damage, color):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = game_font.render(damage, True, color)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.counter = 0
+        
+    def update(self):
+        #move damage text up
+        self.rect.y -= 1
+        #delete the text after a few seconds
+        self.counter += 1
+        if self.counter > 30:
+            self.kill()
+
 
 #sort character list by speed and adds some RNG
 def speed_sort(char_list):
@@ -284,6 +324,10 @@ def small_icon_draw(char_list):
             screen.blit(order_image_list[counter-1], (x_pos + 70, 73))
             x_pos += spacing
 
+
+#intiate damage group text
+damage_text_group = pygame.sprite.Group()
+
 #initiate characters
 char1 = Character((400,320), "shock_sweeper", 6, 6, False, False, 50, 15, 5, 3, 5)
 char2 = Character((600,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
@@ -323,6 +367,10 @@ while run:
     #     charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
     #     pygame.draw.rect(screen, hp_bar_color, pygame.Rect(charRect))
 
+
+    damage_text_group.update()
+    damage_text_group.draw(screen)
+
     #variables
     mouse_pos = pygame.mouse.get_pos()
     pygame.mouse.set_visible(True)
@@ -333,6 +381,8 @@ while run:
         char.update()
         char.draw()
     small_icon_draw(char_list)
+
+    
     
     #skips dead character turns
     if char_turn_prev.animation_finished:
@@ -345,6 +395,7 @@ while run:
     #draw portrait and corresponding hp_bar, prevents flickering 
     if char_turn_prev.animation_finished and char_turn.hp > 0:
         char_turn.draw_character_ui()
+        char_turn.draw_pointer()
             #skill buttons with selection
         for count, button in enumerate(char_turn.skill_buttons):
             if clicked == True and button.rect.collidepoint(mouse_pos) and not char_turn.enemy:
@@ -355,10 +406,10 @@ while run:
                 #draw normal button
                 button.draw(0)
     else:
+        char_turn_prev.draw_pointer()
         for button in char_turn_prev.skill_buttons:
             button.draw(0)
         char_turn_prev.draw_character_ui()
-
 
     #player action
     if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
@@ -418,6 +469,7 @@ while run:
         else:
             clicked = False
 
+    #print(mouse_pos)
 
     pygame.display.update()
 
