@@ -18,6 +18,7 @@ screen_height = 540
 target = None
 selected = None
 turn_increased = False
+game_over_var = False
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Crazy Cowboys')
@@ -30,6 +31,8 @@ game_font = pygame.font.Font("images/ui/PixeloidSans.ttf", 30)
 image = pygame.image.load('images/backgrounds/forest.png').convert_alpha()
 background_image = pygame.transform.scale(image,(image.get_width() * 2, image.get_height() * 2))
 #background_image = pygame.transform.scale(background_image, (screen_width, screen_height))
+
+game_over = pygame.image.load("images/backgrounds/game_over.jpg").convert_alpha()
 
 #load turn pointer
 turn_pointer = pygame.image.load("images/ui/triangle.png")
@@ -91,7 +94,7 @@ class Button():
 
 #unit class
 class Character():
-    def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attk, speed, skill_one_hit, skill_two_hit):
+    def __init__(self, position, name, scale_x, scale_y, flip_image, enemy, max_hp, attack, speed, skill_one_hit, skill_two_hit):
         self.state = 0 #0: idle, 1: skill one, 2: skill two, 3: hurt, 4: death, 5: walk
         self.update_time = pygame.time.get_ticks()
         self.position = position
@@ -101,10 +104,15 @@ class Character():
         self.enemy = enemy
         self.max_hp = max_hp
         self.hp = max_hp
-        self.attk = attk
+        self.attack = attack
         self.speed = speed
         #lets next character in turn know that they can play their turn
         self.animation_finished = True
+        #skill cooldowns, and how long a skill cooldown will be after it is used
+        self.skill_one_used_cd = 0
+        self.skill_two_used_cd = 2
+        self.skill_one_cd = 0
+        self.skill_two_cd = 0
         #frame where animations of skill one and skill two reach peak
         self.skill_one_hit = skill_one_hit
         self.skill_two_hit = skill_two_hit
@@ -155,7 +163,7 @@ class Character():
         if self.state == 1 and self.frame_index == self.skill_one_hit:
             #if the skill has not been yet casted:
             if not self.skill_activated:
-                damage = self.attk
+                damage = self.attack
                 target.hp -= damage
                 damage_text = Damage_Text(target.rect.centerx, target.rect.y, str(damage), red)
                 damage_text_group.add(damage_text)
@@ -163,6 +171,11 @@ class Character():
                     target.death()
                 else:
                     target.hurt()
+                #increases cool down of skill one
+                self.skill_one_cd = 0
+                self.skill_one_cd += self.skill_one_used_cd
+                #reduces cd of skill_two
+                self.skill_two_cd -= 1
                 #prevents damage from being calculated twice
                 self.skill_activated = True
 
@@ -170,7 +183,7 @@ class Character():
         if self.state == 2 and self.frame_index == self.skill_two_hit:
             #if the skill has not been yet casted:
             if not self.skill_activated:
-                damage = self.attk
+                damage = self.attack
                 target.hp -= damage
                 damage_text = Damage_Text(target.rect.centerx, target.rect.y, str(damage), red)
                 damage_text_group.add(damage_text)
@@ -178,6 +191,11 @@ class Character():
                     target.death()
                 else:
                     target.hurt()
+                #increases cool down of skill two
+                self.skill_two_cd = 0
+                self.skill_two_cd += self.skill_two_used_cd
+                #reduces cd of skill_one
+                self.skill_one_cd -= 1
                 #prevents damage from being calculated twice
                 self.skill_activated = True
 
@@ -191,6 +209,8 @@ class Character():
                 self.frame_index = len(self.animation_list[self.state]) - 1
             else: self.idle()
             self.animation_finished = True
+            #print(char_turn.skill_one_cd)
+            #print(char_turn.skill_two_cd)
 
     def idle(self):
         #set variable to idle animation
@@ -260,7 +280,7 @@ class Character():
         screen.blit(portrait_name, (210,460))
     
     def draw_pointer(self):
-        screen.blit(turn_pointer, (self.position[0]-15,220))
+        screen.blit(turn_pointer, (char_turn.rect.centerx -10,220))
 
     def draw_character_ui(self):
         self.portrait_hp_bar()
@@ -290,31 +310,10 @@ def speed_sort(char_list):
 
 #draws turn order based on how many characters are still alive in the battle
 def small_icon_draw(char_list):
-    alive_count = 0
-    spacing = 0
-    for char in char_list:
-        if char.hp > 0:
-            alive_count += 1
-    if alive_count == 6:
-        x_pos = 340
-        spacing = 120
-    elif alive_count == 5:
-        x_pos = 340
-        spacing = 120
-    elif alive_count == 4:
-        x_pos = 340
-        spacing = 120
-    elif alive_count == 3:
-        x_pos = 340
-        spacing = 120
-    elif alive_count == 2:
-        x_pos = 340
-        spacing = 120
-    elif alive_count == 1:
-        x_pos = 340
-        spacing = 120
-
+    spacing = 120
+    x_pos = 340
     counter = 0
+    
     for char in (char_list):
         if char.hp > 0:
             counter += 1
@@ -323,6 +322,26 @@ def small_icon_draw(char_list):
             #put number of order on screen in image
             screen.blit(order_image_list[counter-1], (x_pos + 70, 73))
             x_pos += spacing
+
+def check_enemy_dead(enemy_list):
+    count = 0
+    for i in enemy_list:
+        if i.hp <= 0:
+            count += 1
+    if count >= len(enemy_list):
+        return True
+    else:
+        return False
+
+def check_ally_dead(ally_list):
+    count = 0
+    for i in ally_list:
+        if i.hp <= 0:
+            count += 1
+    if count >= len(ally_list):
+        return True
+    else:
+        return False
 
 
 #intiate damage group text
@@ -335,8 +354,10 @@ char3 = Character((750,315), "skeleton", 5, 5, True, True, 30, 10, 5, 8, 0)
 
 #intializes characters and sorts first turn by speed
 char_list = [char1,char2, char3]
+speed_sort(char_list)
 ally_list = [char1]
 enemy_list = [char2,char3]
+enemy_dead_count = 0
 
 #variables
 turn = 0
@@ -345,6 +366,7 @@ char_turn = char_list[turn]
 char_turn_prev = char_turn
 #used to update turn icons correctly
 turn_icon_wait = 0
+#used to signal end game
 
 #wait time for enemy action
 wait_count = 0
@@ -353,112 +375,121 @@ wait_time = 60
 
 run = True
 while run:
-    clock.tick(fps)
 
-    #draw background
-    draw_background()
+    if game_over_var == False:
+        
+        clock.tick(fps)
 
-    #draw character health bars
-    char1.draw_hp_bar(325, 40)
-    char2.draw_hp_bar(115, 35)
-    char3.draw_hp_bar(115, 35)
-    #draw hitbox for characters, debug
-    # for char in char_list:
-    #     charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
-    #     pygame.draw.rect(screen, hp_bar_color, pygame.Rect(charRect))
+        #draw background
+        draw_background()
+
+        #draw character health bars
+        char1.draw_hp_bar(325, 40)
+        char2.draw_hp_bar(115, 35)
+        char3.draw_hp_bar(115, 35)
+        #draw hitbox for characters, debug
+        # for char in char_list:
+        #     charRect = [(char.rect.centerx-50), (char.rect.centery-25), 100, 125]
+        #     pygame.draw.rect(screen, hp_bar_color, pygame.Rect(charRect))
 
 
-    damage_text_group.update()
-    damage_text_group.draw(screen)
+        damage_text_group.update()
+        damage_text_group.draw(screen)
 
-    #variables
-    mouse_pos = pygame.mouse.get_pos()
-    pygame.mouse.set_visible(True)
-    char_turn = char_list[turn]
+        #variables
+        mouse_pos = pygame.mouse.get_pos()
+        pygame.mouse.set_visible(True)
+        char_turn = char_list[turn]
 
-    #draw fighters
-    for count, char in enumerate(char_list):
-        char.update()
-        char.draw()
-    small_icon_draw(char_list)
+        #draw fighters
+        for count, char in enumerate(char_list):
+            char.update()
+            char.draw()
+        small_icon_draw(char_list)
 
-    
-    
-    #skips dead character turns
-    if char_turn_prev.animation_finished:
-        if char_turn.hp <= 0:
-            if turn == len(char_list) - 1:
-                speed_sort(char_list)
-                turn = 0                       
-            else: turn += 1
+        
+        
+        #skips dead character turns
+        if char_turn_prev.animation_finished:
+            if char_turn.hp <= 0:
+                if turn == len(char_list) - 1:
+                    speed_sort(char_list)
+                    turn = 0                       
+                else: turn += 1
 
-    #draw portrait and corresponding hp_bar, prevents flickering 
-    if char_turn_prev.animation_finished and char_turn.hp > 0:
-        char_turn.draw_character_ui()
-        char_turn.draw_pointer()
-            #skill buttons with selection
-        for count, button in enumerate(char_turn.skill_buttons):
-            if clicked == True and button.rect.collidepoint(mouse_pos) and not char_turn.enemy:
-                selected = char_turn.skill_buttons[count]
-                #draw button in clicked state
-                selected.draw(1)
-            else:
-                #draw normal button
-                button.draw(0)
-    else:
-        char_turn_prev.draw_pointer()
-        for button in char_turn_prev.skill_buttons:
-            button.draw(0)
-        char_turn_prev.draw_character_ui()
+        #draw portrait and corresponding hp_bar, prevents flickering 
+        if char_turn_prev.animation_finished and char_turn.hp > 0:
+            char_turn.draw_character_ui()
+            char_turn.draw_pointer()
+                #skill buttons with selection
+            for count, button in enumerate(char_turn.skill_buttons):
+                if clicked == True and button.rect.collidepoint(mouse_pos) and not char_turn.enemy:
+                    selected = char_turn.skill_buttons[count]
+                    #draw button in clicked state
+                    selected.draw(1)
+                else:
+                    #draw normal button
+                    button.draw(0)
+        else:
+            if char_turn_prev.hp > 0:
+                char_turn_prev.draw_pointer()
+                for button in char_turn_prev.skill_buttons:
+                    button.draw(0)
+                char_turn_prev.draw_character_ui()
 
-    #player action
-    if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
-        #select skill and animate it
-        if selected:
-            for count, enemy in enumerate(enemy_list):
-                #fix collision box
-                enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
-                if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
-                    if selected.skill_number == 0 or selected.skill_number == 2:
-                        char_turn.animation_finished = False
-                        target = enemy_list[count]
-                        if selected.skill_number == 0:
-                            char_turn.skill_one()
-                        if selected.skill_number == 2:
-                            char_turn.skill_two()
-                        char_turn_prev = char_turn
-                        #update turn and makes sure it only runs once
-                        if turn_increased == False:
-                            selected = None
-                            if turn == len(char_list) - 1:
-                                speed_sort(char_list)
-                                turn = 0                       
-                            else: turn += 1
-                            turn_increased = True
-                            
+        #player action
+        if clicked and char_turn_prev.animation_finished and not char_turn.enemy:
+            #select skill and animate it
+            if selected:
+                #state that a skill is on cooldown:
+                if (selected.skill_number == 0 and char_turn.skill_one_cd > 0) or (selected.skill_number == 2 and char_turn.skill_two_cd > 0):
+                    cooldown_text = Damage_Text(selected.rect.centerx, selected.rect.y - 50, "Skill is on cooldown!", red)
+                    damage_text_group.add(cooldown_text)
+                for count, enemy in enumerate(enemy_list):
+                    #fix collision box
+                    enemy_rect = [(enemy.rect.centerx-50), (enemy.rect.centery-25), 100, 125]
+                    if pygame.Rect(enemy_rect).collidepoint(mouse_pos) and enemy.hp > 0:
+                        #if selected skill is not on cooldown
+                        if (selected.skill_number == 0 and char_turn.skill_one_cd <= 0) or (selected.skill_number == 2 and char_turn.skill_two_cd <= 0):
+                            char_turn.animation_finished = False
+                            target = enemy_list[count]
+                            if selected.skill_number == 0:
+                                char_turn.skill_one()
+                            if selected.skill_number == 2:
+                                char_turn.skill_two()
+                            char_turn_prev = char_turn
+                            #update turn and makes sure it only runs once
+                            if turn_increased == False:
+                                selected = None
+                                if turn == len(char_list) - 1:
+                                    speed_sort(char_list)
+                                    turn = 0                       
+                                else: turn += 1
+                                turn_increased = True
+                                
 
-    #enemy action
-    if char_turn.enemy and char_turn_prev.animation_finished:
-        #ensures the next character cannot act before animiation is done
-        wait_count += 1
-        if wait_count >= wait_time:
-            for char in ally_list:
-                if char.hp > 0:
-                    target = char
-                break
-            #prevents enemy from playing animation when player is dead
-            if not target.enemy and target.hp > 0:
-                char_turn.skill_one()
-                char_turn.animation_finished = False
-                wait_count = 0
-                char_turn_prev = char_turn
-                #update turn and makes sure it only runs once
-                if turn_increased == False:
-                    if turn == len(char_list) - 1:
-                        speed_sort(char_list)
-                        turn = 0                       
-                    else: turn += 1
-                    turn_increased = True
+        #enemy action
+        if char_turn.enemy and char_turn_prev.animation_finished:
+            #ensures the next character cannot act before animiation is done
+            wait_count += 1
+            if wait_count >= wait_time:
+                for char in ally_list:
+                    if char.hp > 0:
+                        target = char
+                    break
+                #prevents enemy from playing animation when player is dead
+                if not target.enemy and target.hp > 0:
+                    char_turn.skill_one()
+                    char_turn.animation_finished = False
+                    wait_count = 0
+                    char_turn_prev = char_turn
+                    #update turn and makes sure it only runs once
+                    if turn_increased == False:
+                        if turn == len(char_list) - 1:
+                            speed_sort(char_list)
+                            turn = 0                       
+                        else: turn += 1
+                        turn_increased = True
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -469,7 +500,15 @@ while run:
         else:
             clicked = False
 
-    #print(mouse_pos)
+    if char_turn_prev.animation_finished:
+        game_over_var = check_ally_dead(ally_list)
+
+    if char_turn_prev.animation_finished:
+        game_over_var = check_enemy_dead(enemy_list)
+
+    if game_over_var == True:
+        screen.blit(game_over,(0,0))
+
 
     pygame.display.update()
 
